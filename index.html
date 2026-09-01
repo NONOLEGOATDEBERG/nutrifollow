@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Carnet de nutrition</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#1c2b24;
+    --paper:#eef0ec;
+    --panel:#ffffff;
+    --line:#d8dbd2;
+    --amber:#e2a33d;
+    --teal:#2f7a78;
+    --muted:#6b7268;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    font-variant-numeric: tabular-nums;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:640px;margin:0 auto;padding:48px 20px 80px;}
+  h1{
+    font-family:'Fraunces',serif;
+    font-weight:600;
+    font-size:2.1rem;
+    margin:0 0 4px;
+    letter-spacing:-0.01em;
+  }
+  .date{color:var(--muted);font-size:0.95rem;margin-bottom:36px;text-transform:capitalize;}
+  .totals{
+    display:flex;
+    justify-content:space-between;
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:4px;
+    padding:20px 24px;
+    margin-bottom:28px;
+  }
+  .stat{text-align:left;}
+  .stat .n{font-size:1.5rem;font-weight:600;}
+  .stat .l{font-size:0.78rem;color:var(--muted);margin-top:2px;}
+  .stat.kcal .n{color:var(--amber);}
+  form{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:4px;
+    padding:20px 24px;
+    margin-bottom:28px;
+    display:grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr 1fr auto;
+    gap:10px;
+    align-items:end;
+  }
+  label{font-size:0.75rem;color:var(--muted);display:block;margin-bottom:4px;}
+  input, select{
+    width:100%;
+    border:1px solid var(--line);
+    border-radius:3px;
+    padding:8px 9px;
+    font-family:inherit;
+    font-size:0.9rem;
+    background:#fff;
+  }
+  button{
+    background:var(--ink);
+    color:#fff;
+    border:none;
+    border-radius:3px;
+    padding:9px 16px;
+    font-size:0.9rem;
+    cursor:pointer;
+  }
+  button:hover{opacity:0.88;}
+  .log h2{
+    font-family:'Fraunces',serif;
+    font-weight:600;
+    font-size:1.1rem;
+    margin:0 0 10px;
+  }
+  .entry{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:12px 2px;
+    border-bottom:1px solid var(--line);
+  }
+  .entry:first-child{border-top:1px solid var(--line);}
+  .entry .name{font-weight:500;}
+  .entry .meal{font-size:0.75rem;color:var(--muted);}
+  .entry .right{display:flex;align-items:center;gap:14px;}
+  .entry .kcal{font-weight:600;color:var(--amber);}
+  .entry .macro{font-size:0.8rem;color:var(--muted);}
+  .del{
+    background:none;border:none;color:var(--muted);
+    font-size:1.1rem;cursor:pointer;padding:0 2px;
+    line-height:1;
+  }
+  .del:hover{color:#b3413e;}
+  .empty{color:var(--muted);font-size:0.9rem;padding:20px 2px;}
+  @media (max-width:600px){
+    form{grid-template-columns: 1fr 1fr;}
+    form button{grid-column: 1 / -1;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Carnet de nutrition</h1>
+  <div class="date" id="today"></div>
+
+  <div class="totals">
+    <div class="stat kcal"><div class="n" id="tot-kcal">0</div><div class="l">kcal</div></div>
+    <div class="stat"><div class="n" id="tot-prot">0g</div><div class="l">protéines</div></div>
+    <div class="stat"><div class="n" id="tot-carb">0g</div><div class="l">glucides</div></div>
+    <div class="stat"><div class="n" id="tot-fat">0g</div><div class="l">lipides</div></div>
+  </div>
+
+  <form id="entry-form">
+    <div>
+      <label for="name">Aliment</label>
+      <input type="text" id="name" required placeholder="Ex. Poulet-riz">
+    </div>
+    <div>
+      <label for="kcal">Kcal</label>
+      <input type="number" id="kcal" required min="0">
+    </div>
+    <div>
+      <label for="prot">Prot. (g)</label>
+      <input type="number" id="prot" min="0" value="0">
+    </div>
+    <div>
+      <label for="carb">Gluc. (g)</label>
+      <input type="number" id="carb" min="0" value="0">
+    </div>
+    <div>
+      <label for="fat">Lip. (g)</label>
+      <input type="number" id="fat" min="0" value="0">
+    </div>
+    <button type="submit">Ajouter</button>
+  </form>
+
+  <div class="log">
+    <h2>Aujourd'hui</h2>
+    <div id="entries"></div>
+  </div>
+</div>
+
+<script>
+  const todayKey = () => new Date().toISOString().slice(0,10);
+  const STORAGE_KEY = 'nutrition-log-' + todayKey();
+
+  const dateEl = document.getElementById('today');
+  dateEl.textContent = new Date().toLocaleDateString('fr-FR', { weekday:'long', day:'numeric', month:'long' });
+
+  function loadEntries(){
+    try{ return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
+    catch{ return []; }
+  }
+  function saveEntries(entries){
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+  }
+
+  function render(){
+    const entries = loadEntries();
+    const list = document.getElementById('entries');
+    list.innerHTML = '';
+
+    if(entries.length === 0){
+      list.innerHTML = '<div class="empty">Aucune entrée pour l\'instant. Ajoute ton premier repas ci-dessus.</div>';
+    } else {
+      entries.forEach((e, i) => {
+        const row = document.createElement('div');
+        row.className = 'entry';
+        row.innerHTML = `
+          <div>
+            <div class="name">${e.name}</div>
+            <div class="macro">P ${e.prot}g · G ${e.carb}g · L ${e.fat}g</div>
+          </div>
+          <div class="right">
+            <div class="kcal">${e.kcal} kcal</div>
+            <button class="del" title="Supprimer" data-i="${i}">×</button>
+          </div>`;
+        list.appendChild(row);
+      });
+    }
+
+    const totals = entries.reduce((acc, e) => ({
+      kcal: acc.kcal + Number(e.kcal),
+      prot: acc.prot + Number(e.prot),
+      carb: acc.carb + Number(e.carb),
+      fat: acc.fat + Number(e.fat),
+    }), {kcal:0, prot:0, carb:0, fat:0});
+
+    document.getElementById('tot-kcal').textContent = totals.kcal;
+    document.getElementById('tot-prot').textContent = totals.prot + 'g';
+    document.getElementById('tot-carb').textContent = totals.carb + 'g';
+    document.getElementById('tot-fat').textContent = totals.fat + 'g';
+
+    list.querySelectorAll('.del').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const entries = loadEntries();
+        entries.splice(Number(btn.dataset.i), 1);
+        saveEntries(entries);
+        render();
+      });
+    });
+  }
+
+  document.getElementById('entry-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const entries = loadEntries();
+    entries.push({
+      name: document.getElementById('name').value.trim(),
+      kcal: document.getElementById('kcal').value,
+      prot: document.getElementById('prot').value,
+      carb: document.getElementById('carb').value,
+      fat: document.getElementById('fat').value,
+    });
+    saveEntries(entries);
+    e.target.reset();
+    document.getElementById('name').focus();
+    render();
+  });
+
+  render();
+</script>
+</body>
+</html>
